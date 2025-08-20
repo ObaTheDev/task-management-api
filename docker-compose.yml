@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  task-api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./data/tasks.db
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+  # Optional: PostgreSQL database for production use
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: tasks_db
+      POSTGRES_USER: tasks_user
+      POSTGRES_PASSWORD: tasks_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    profiles:
+      - postgres
+
+  # Task API with PostgreSQL
+  task-api-postgres:
+    build: .
+    ports:
+      - "8001:8000"
+    environment:
+      - DATABASE_URL=postgresql://tasks_user:tasks_password@postgres:5432/tasks_db
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    profiles:
+      - postgres
+
+volumes:
+  postgres_data:
